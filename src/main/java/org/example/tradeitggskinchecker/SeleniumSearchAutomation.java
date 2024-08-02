@@ -1,5 +1,7 @@
 package org.example.tradeitggskinchecker;
 
+import org.example.tradeitggskinchecker.enums.CSSLibrary;
+import org.example.tradeitggskinchecker.enums.StatTrack;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -7,37 +9,40 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 
 import java.time.Duration;
 import java.util.List;
 
-
-
+@Component
 public class SeleniumSearchAutomation {
 
-    public static void run() {
+    private final TelegramNotifier telegramNotifier;
 
-        // Укажите путь к ChromeDriver
+    @Autowired
+    public SeleniumSearchAutomation(TelegramNotifier telegramNotifier) {
+        this.telegramNotifier = telegramNotifier;
+    }
+
+    public void run(Weapon weapon) {
+        System.out.println("Starting Search for:" + weapon.gunType + " " + weapon.skinName);
         System.setProperty("webdriver.chrome.driver", "D:\\chromedriver-win64\\chromedriver.exe");
 
-        // Настройка опций для ChromeDriver
-        ChromeOptions options = new ChromeOptions();
-         options.addArguments("--headless"); // Закомментируйте для проверки в графическом режиме
-        // Инициализация WebDriver
-        WebDriver driver = new ChromeDriver(options);
+        WebDriver driver = getWebDriver();
         driver.manage().window().maximize();
 
         try {
-            // Открыть страницу
-            driver.get("https://tradeit.gg/ru/csgo/trade");
+            String tradeItURL = "https://tradeit.gg/ru/csgo/trade";
+            driver.get(tradeItURL);
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(3));
-            List<WebElement> buttons = driver.findElements(By.cssSelector(".v-expansion-panel-title.font-size-16.text-capitalize.font-weight-medium.align-center"));
+            List<WebElement> buttons = driver.findElements(By.cssSelector(CSSLibrary.MIDDLE_BUTTONS_WIDGETS_CSS));
             for (WebElement button : buttons) {
                 if (button.getText().contains("StatTrak")) {
                     button.click();
-                    List<WebElement> statTrackButtons = driver.findElements(By.cssSelector(".v-label.v-label--clickable"));
-                    String STAT_TRACK = "No";
-                    if (STAT_TRACK.equals("No")) {
+                    List<WebElement> statTrackButtons = driver.findElements(By.cssSelector(CSSLibrary.MIDDLE_BUTTON_INPUT_CSS));
+                    if (weapon.isStattrack == StatTrack.NO) {
                         statTrackButtons.getFirst().click();
                     } else {
                         statTrackButtons.get(1).click();
@@ -46,75 +51,76 @@ public class SeleniumSearchAutomation {
                 }
                 if (button.getText().contains("Флоат")) {
                     button.click();
-                    WebElement leftFloatField = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//input[@placeholder='From' and @type='number']")));
+                    WebElement leftFloatField = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(CSSLibrary.LEFT_FLOAT_FIELD_INPUT_XPATH)));
                     leftFloatField.click();
                     leftFloatField.sendKeys(org.openqa.selenium.Keys.CONTROL + "a");
                     leftFloatField.sendKeys(org.openqa.selenium.Keys.DELETE);
-                    leftFloatField.sendKeys("0.151");
+                    leftFloatField.sendKeys(weapon.floatBorders.leftFloatBorder);
                     try {
-                        Thread.sleep(500); // Небольшая пауза для полного обновления результатов
+                        Thread.sleep(500);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                    WebElement rightFloatField = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//input[@placeholder='To' and @type='number']")));
+                    WebElement rightFloatField = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(CSSLibrary.RIGHT_FLOAT_FIELD_INPUT_XPATH)));
                     rightFloatField.click();
                     rightFloatField.sendKeys(org.openqa.selenium.Keys.CONTROL + "a");
                     rightFloatField.sendKeys(org.openqa.selenium.Keys.DELETE);
-                    rightFloatField.sendKeys("0.2");
+                    rightFloatField.sendKeys(weapon.floatBorders.rightFloatBorder);
                     break;
                 }
             }
             try {
-                Thread.sleep(2000); // Небольшая пауза для полного обновления результатов
+                Thread.sleep(2000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
 
 
-            WebElement searchField = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("input#siteInventory-search")));
+            WebElement searchField = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(CSSLibrary.BOT_INVENTORY_SEARCH_CSS)));
             searchField.click();
 
-            // Ввести название скина и нажать Enter
-            searchField.sendKeys("Temukau");
-            searchField.sendKeys(org.openqa.selenium.Keys.RETURN); // Нажать Enter для выполнения поиска
+            searchField.sendKeys(weapon.gunType + " " + weapon.skinName);
+            searchField.sendKeys(org.openqa.selenium.Keys.RETURN);
 
-            // Печать для отладки
-            System.out.println("Search completed, waiting for results...");
 
-            // Ожидание появления результатов поиска
-            wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".item-cell.item.item-md.rounded.gray-700")));
+            wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(CSSLibrary.GUN_INFO_WIDGET_CSS)));
 
 
             try {
-                Thread.sleep(2000); // Небольшая пауза для полного обновления результатов
+                Thread.sleep(2000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
 
 
-            List<WebElement> widgets = driver.findElements(By.cssSelector(".item-cell.item.item-md.rounded.gray-700"));
+            List<WebElement> widgets = driver.findElements(By.cssSelector(CSSLibrary.GUN_INFO_WIDGET_CSS));
 
-            // Перебрать виджеты и найти нужный
             for (WebElement widget : widgets) {
                 try {
-                    WebElement openField = widget.findElement(By.cssSelector(".v-btn__content"));
+                    WebElement openField = widget.findElement(By.cssSelector(CSSLibrary.OPEN_BUTTON_CSS));
                     openField.click();
                     try {
-                        Thread.sleep(2000); // Небольшая пауза для полного обновления результатов
+                        Thread.sleep(2000);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                    List<WebElement> foundedGuns = driver.findElements(By.cssSelector(".item-cell.item.item-md.rounded.gray-700"));
-                    if (!foundedGuns.getFirst().getText().contains("Temukau")) {
-                        System.out.println("Nothing found");
+                    List<WebElement> foundedGuns = driver.findElements(By.cssSelector(CSSLibrary.GUN_INFO_WIDGET_CSS));
+                    if (!foundedGuns.getFirst().getText().contains(weapon.skinName)) {
+                        System.out.println("\nNothing found for:" + weapon.gunType + " " + weapon.skinName);
                         return;
                     }
                     for (WebElement foundedGun : foundedGuns) {
-                        System.out.println("Founded gun:\n");
-                        System.out.println(foundedGun.getText());
+                        String gun;
+                        if (foundedGun.equals(foundedGuns.getFirst())) {
+                            gun = "Founded " + weapon.gunType + " " + foundedGun.getText();
+                        } else {
+                            gun = "Founded " + weapon.gunType + " " + weapon.skinName + "\n" + foundedGun.getText();
+                        }
+                        System.out.println(gun);
+                        telegramNotifier.sendMessage(gun + "\n" + tradeItURL);
                     }
                     try {
-                        Thread.sleep(2000); // Небольшая пауза для полного обновления результатов
+                        Thread.sleep(2000);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -122,15 +128,27 @@ public class SeleniumSearchAutomation {
 
 
                 } catch (org.openqa.selenium.NoSuchElementException e) {
-                    // Если элемент не найден, игнорируем и продолжаем
                     System.out.println("Element not found in widget.");
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            // Закрыть браузер
             driver.quit();
         }
+    }
+
+    private static WebDriver getWebDriver() {
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless");
+        options.addArguments("--window-size=1920,1080");
+        options.addArguments("--disable-gpu");
+        options.addArguments("--disable-extensions");
+        options.addArguments("--proxy-server='direct://'");
+        options.addArguments("--proxy-bypass-list=*");
+        options.addArguments("--start-maximized");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        return new ChromeDriver(options);
     }
 }
